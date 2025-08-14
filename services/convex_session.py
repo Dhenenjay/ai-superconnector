@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Optional
 import logging
 import os
-from services.convex_db import convex_client
+from services.convex_db import convex_db as convex_client
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +23,9 @@ class ConvexSessionManager:
         phone_number = self._normalize_phone(phone_number)
         
         try:
-            # Query Convex for the session
-            result = self.client.query("sessions:get", {"phoneNumber": phone_number})
+            # For now, fall back to local storage until Convex functions are set up
+            logger.warning("Convex session functions not implemented, using fallback")
+            return None
             
             if result:
                 # Check if session expired
@@ -63,11 +64,9 @@ class ConvexSessionManager:
                 "createdAt": data.get('created_at', datetime.now().isoformat())
             }
             
-            # Upsert session in Convex
-            result = self.client.mutation("sessions:upsert", session_data)
-            
-            logger.info(f"Session updated in Convex for {phone_number}: {result}")
-            return result
+            # For now, just log until Convex functions are set up
+            logger.warning(f"Would update Convex session for {phone_number}: {session_data}")
+            return session_data
             
         except Exception as e:
             logger.error(f"Error updating session in Convex: {e}")

@@ -716,8 +716,16 @@ async def voice_outbound_webhook(request: Request, db: Session = Depends(get_db)
                     
                     logger.info(f"Media Stream via Connect configured for call {data.get('CallSid', 'unknown')}")
                     
-                    # Note: No pause needed after Connect - Twilio handles the call duration
-                    # The Connect verb will keep the call open until the WebSocket closes
+                    # Add a fallback pause to prevent immediate hangup if WebSocket fails
+                    # This gives time for the WebSocket to establish
+                    response.pause(length=30)  # Keep call open for 30 seconds as fallback
+                    
+                    # Add a closing message
+                    response.say(
+                        "Thanks for the call! I'll follow up with you on WhatsApp.",
+                        voice="Polly.Matthew-Neural",
+                        language="en-US"
+                    )
                 
                 except Exception as e:
                     logger.error(f"Failed to setup Media Stream via Connect: {str(e)}")
