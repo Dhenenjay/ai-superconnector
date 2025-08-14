@@ -94,8 +94,7 @@ class OpenAIRealtimeClient:
                 self.session_id = data.get("session", {}).get("id")
                 logger.info(f"OpenAI Realtime session created: {self.session_id}")
                 
-                # Configure session for optimal voice conversation
-                await self.configure_session()
+                # Don't configure session here - let the bridge do it with user context
                 self.is_connected = True
                 return True
             else:
@@ -108,20 +107,33 @@ class OpenAIRealtimeClient:
             logger.error(f"Failed to connect to OpenAI Realtime API: {str(e)}", exc_info=True)
             return False
     
-    async def configure_session(self):
+    async def configure_session(self, user_name: Optional[str] = None, user_email: Optional[str] = None):
         """
         Configure the session for optimal voice conversation
         """
         try:
+            # Build personalized instructions with user context
+            if user_name and user_name != "there":
+                instructions = f"""You are Eli, a warm, charismatic AI superconnector having a phone conversation with {user_name}.
+                You already know their name is {user_name} and their email is {user_email}.
+                Don't ask for their name or email again - you already have this information.
+                You help professionals build meaningful connections and expand their network.
+                Be conversational, engaging, and genuinely interested in helping them.
+                Keep responses concise and natural for phone conversation.
+                Show enthusiasm about their networking goals.
+                Use their name naturally in conversation."""
+            else:
+                instructions = """You are Eli, a warm, charismatic AI superconnector having a phone conversation. 
+                You help professionals build meaningful connections and expand their network.
+                Be conversational, engaging, and genuinely interested in helping them.
+                Keep responses concise and natural for phone conversation.
+                Show enthusiasm about their networking goals."""
+            
             config = {
                 "type": "session.update",
                 "session": {
                     "modalities": ["text", "audio"],
-                    "instructions": """You are Eli, a warm, charismatic AI superconnector having a phone conversation. 
-                    You help professionals build meaningful connections and expand their network.
-                    Be conversational, engaging, and genuinely interested in helping them.
-                    Keep responses concise and natural for phone conversation.
-                    Show enthusiasm about their networking goals.""",
+                    "instructions": instructions,
                     "voice": "echo",  # Natural male voice option for Eli
                     "input_audio_format": "pcm16",
                     "output_audio_format": "pcm16",
@@ -142,7 +154,7 @@ class OpenAIRealtimeClient:
             }
             
             await self.websocket.send(json.dumps(config))
-            logger.info("Session configured for voice conversation")
+            logger.info(f"Session configured for voice conversation with user: {user_name}")
             
         except Exception as e:
             logger.error(f"Failed to configure session: {str(e)}")

@@ -59,6 +59,8 @@ class RealtimeBridge:
             connected = await self.openai_realtime.connect()
             if connected:
                 logger.info("Successfully connected to OpenAI Realtime API")
+                # Configure session with user context if available
+                await self.openai_realtime.configure_session(self.user_name, self.user_email)
                 openai_task = asyncio.create_task(self.handle_openai_events())
                 # Start heartbeat to keep WebSocket alive for Connect verb
                 heartbeat_task = asyncio.create_task(self.send_heartbeat())
@@ -154,14 +156,12 @@ class RealtimeBridge:
                         # Clear Twilio's audio buffer first (for bidirectional streams)
                         await self.clear_twilio_buffer()
                         
-                        # Immediately play a short test tone to verify outbound audio path
-                        await self.send_test_tone_ms(300)
-                        
-                        # DISABLED: Initial greeting might be interfering with audio
-                        # try:
-                        #     await self.send_initial_greeting()
-                        # except Exception:
-                        #     pass
+                        # Send initial greeting after a brief delay to let OpenAI session settle
+                        await asyncio.sleep(0.5)
+                        try:
+                            await self.send_initial_greeting()
+                        except Exception as e:
+                            logger.error(f"Failed to send initial greeting: {e}")
                         
                     elif event_type == "media":
                         # Audio data received from Twilio
@@ -357,19 +357,33 @@ class RealtimeBridge:
         try:
             logger.info(f"Sending initial greeting for user: {self.user_name}")
             
-            # Send an immediate greeting through OpenAI
+            # Create a personalized greeting based on user context
             if self.user_name and self.user_name != "there":
-                greeting = f"Hi {self.user_name}! I heard you're interested in expanding your professional network. What specific connections are you looking to make?"
+                greeting = f"Hi {self.user_name}! Great to connect with you. I understand you're interested in expanding your professional network. What specific types of connections would be most valuable for your goals?"
             else:
-                greeting = "Hi! I understand you're looking to expand your professional network. What kind of connections would be most valuable for you?"
+                greeting = "Hi there! I'm Eli, your AI networking assistant. I'm here to help you build meaningful professional connections. What kind of opportunities are you looking to explore?"
             
-            # Send text and immediately create response for audio
-            await self.openai_realtime.send_text(greeting)
-            logger.info("Sent greeting text to OpenAI")
+            # Use the conversation.item.create approach for initial greeting
+            message = {
+                "type": "conversation.item.create",
+                "item": {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": greeting
+                        }
+                    ]
+                }
+            }
             
-            # Explicitly trigger response creation
+            await self.openai_realtime.websocket.send(json.dumps(message))
+            logger.info("Sent greeting message to OpenAI")
+            
+            # Trigger response generation for audio output
             await self.openai_realtime.create_response()
-            logger.info("Triggered OpenAI response generation")
+            logger.info("Triggered OpenAI response generation for greeting")
             
         except Exception as e:
             logger.error(f"Error sending initial greeting: {str(e)}")
