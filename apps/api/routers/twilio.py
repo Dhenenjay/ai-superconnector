@@ -183,7 +183,11 @@ async def generate_ai_response(message: str, from_number: str, db: Session, requ
     """
     try:
         from core.config import settings
-        from services.user_session import session_manager
+        # Use Convex session manager if available, otherwise fall back to local
+        try:
+            from services.convex_session import session_manager
+        except ImportError:
+            from services.user_session import session_manager
         import openai
         import re
         import urllib.parse
@@ -757,7 +761,11 @@ async def voice_outbound_timeout_webhook(request: Request, db: Session = Depends
     Handle timeout when user doesn't respond during outbound call
     """
     try:
-        from services.user_session import session_manager
+        # Use Convex session manager if available, otherwise fall back to local
+        try:
+            from services.convex_session import session_manager
+        except ImportError:
+            from services.user_session import session_manager
         
         form_data = await request.form()
         data = dict(form_data)
@@ -829,7 +837,11 @@ async def voice_outbound_response_webhook(request: Request, db: Session = Depend
     Handle user's speech response during outbound call
     """
     try:
-        from services.user_session import session_manager
+        # Use Convex session manager if available, otherwise fall back to local
+        try:
+            from services.convex_session import session_manager
+        except ImportError:
+            from services.user_session import session_manager
         from services.openai_voice import openai_voice
         
         form_data = await request.form()
