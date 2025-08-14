@@ -371,7 +371,7 @@ class RealtimeBridge:
                     "role": "assistant",
                     "content": [
                         {
-                            "type": "input_text",
+                            "type": "text",  # Correct field name for OpenAI API
                             "text": greeting
                         }
                     ]

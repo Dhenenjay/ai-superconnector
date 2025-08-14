@@ -144,7 +144,7 @@ class OpenAIRealtimeClient:
                         "type": "server_vad",  # Server-side voice activity detection
                         "threshold": 0.5,
                         "prefix_padding_ms": 300,
-                        "silence_duration_ms": 500
+                        "silence_duration_ms": 800  # Increased to give users more time to speak
                     },
                     "tools": [],
                     "tool_choice": "none",
@@ -334,7 +334,7 @@ class OpenAIRealtimeClient:
                     "role": "user",
                     "content": [
                         {
-                            "type": "input_text",
+                            "type": "text",  # Correct field name
                             "text": text
                         }
                     ]

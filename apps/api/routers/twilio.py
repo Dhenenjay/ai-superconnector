@@ -699,8 +699,11 @@ async def voice_outbound_webhook(request: Request, db: Session = Depends(get_db)
                     ws_url = f"{ws_scheme}://{host}/ws/realtime-bridge"
                     logger.info(f"Setting up Media Stream via Connect with URL: {ws_url}")
                     
-                    # Configure the stream for bidirectional audio
-                    stream = connect.stream(url=ws_url)
+                    # Configure the stream for bidirectional audio with BOTH tracks
+                    stream = connect.stream(
+                        url=ws_url,
+                        track="both"  # Enable BOTH inbound and outbound audio tracks
+                    )
                     
                     # Pass user information as custom parameters
                     stream.parameter(name="callSid", value=data.get('CallSid', ''))
