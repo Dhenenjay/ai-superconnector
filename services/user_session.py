@@ -28,17 +28,37 @@ class UserSessionManager:
     def __init__(self):
         self.session_timeout = timedelta(hours=24)  # Sessions expire after 24 hours
         
-        # Use database for production, file storage for local dev
-        self.use_database = os.getenv("ENV", "dev") == "production" or os.getenv("RENDER", None) is not None
+        # Temporarily disable database to fix immediate issue - use in-memory storage
+        # TODO: Add proper database support later
+        self.use_database = False  # Disabled for now due to SQLite issues on Render
         
         if self.use_database:
             # Initialize database connection
-            database_url = settings.database_url or "sqlite:///./data/sessions.db"
-            self.engine = create_engine(database_url)
-            Base.metadata.create_all(self.engine)
-            self.SessionLocal = sessionmaker(bind=self.engine)
-            logger.info("Using database for session storage")
-            self.sessions = {}  # Cache for performance
+            # Fix SQLite URL format - needs sqlite:/// with absolute path or sqlite:// for relative
+            if settings.database_url and "sqlite" in settings.database_url:
+                # Fix malformed SQLite URLs
+                database_url = settings.database_url.replace("sqlite+sqlite://", "sqlite:///")
+            else:
+                # Use a simple SQLite database for production if no database URL is set
+                database_url = "sqlite:///data/sessions.db"
+            
+            logger.info(f"Attempting to use database URL: {database_url}")
+            
+            try:
+                # Create data directory if it doesn't exist
+                import os
+                os.makedirs("data", exist_ok=True)
+                
+                self.engine = create_engine(database_url)
+                Base.metadata.create_all(self.engine)
+                self.SessionLocal = sessionmaker(bind=self.engine)
+                logger.info("Successfully initialized database for session storage")
+                self.sessions = {}  # Cache for performance
+            except Exception as e:
+                logger.error(f"Failed to initialize database: {e}")
+                logger.info("Falling back to in-memory storage")
+                self.use_database = False
+                self.sessions = {}
         else:
             # Fallback to file storage for local development
             self.storage_dir = Path(".data/sessions")
@@ -159,18 +179,20 @@ class UserSessionManager:
     def mark_call_initiated(self, phone_number: str):
         """Mark that a call has been initiated for this user"""
         phone_number = self._normalize_phone(phone_number)
-        if phone_number in self.sessions:
-            self.sessions[phone_number]['call_initiated'] = True
-            self.sessions[phone_number]['call_time'] = datetime.now()
-            self._save_sessions()  # Save after update
+        # Get or create session
+        session = self.get_session(phone_number) or {}
+        session['call_initiated'] = True
+        session['call_time'] = datetime.now()
+        self.create_or_update_session(phone_number, session)
     
     def mark_call_completed(self, phone_number: str):
         """Mark that a call has been completed for this user"""
         phone_number = self._normalize_phone(phone_number)
-        if phone_number in self.sessions:
-            self.sessions[phone_number]['call_completed'] = True
-            self.sessions[phone_number]['call_completed_time'] = datetime.now()
-            self._save_sessions()  # Save after update
+        # Get or create session
+        session = self.get_session(phone_number) or {}
+        session['call_completed'] = True
+        session['call_completed_time'] = datetime.now()
+        self.create_or_update_session(phone_number, session)
     
     def _normalize_phone(self, phone_number: str) -> str:
         """Normalize phone number by removing whatsapp: prefix"""
