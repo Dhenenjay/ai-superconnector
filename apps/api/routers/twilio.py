@@ -272,8 +272,8 @@ async def generate_ai_response(message: str, from_number: str, db: Session, requ
                 name = match.group(1).strip()
                 break
         
-        # Check if user explicitly wants a call
-        call_keywords = ['call me', 'can you call', 'give me a call', 'phone call', 'voice call', 'let\'s talk', 'prefer to talk', 'rather talk', 'switch to call', 'hop on a call', 'call you', 'discuss over a call', 'talk on the phone', 'speak with you']
+        # Check if user explicitly wants a call - add more variations
+        call_keywords = ['call me', 'can you call', 'give me a call', 'phone call', 'voice call', 'let\'s talk', 'prefer to talk', 'rather talk', 'switch to call', 'hop on a call', 'call you', 'discuss over a call', 'talk on the phone', 'speak with you', 'call me?', 'call me!']
         wants_call = any(keyword in message.lower() for keyword in call_keywords)
         
         # Check if user provided email
@@ -329,38 +329,41 @@ async def generate_ai_response(message: str, from_number: str, db: Session, requ
                 else:
                     return f"Great! I have your email as {user_email}. Let's explore how I can help you build meaningful professional connections. What are your networking goals?"
         
-        # Check if user wants a call - handle this BEFORE OpenAI
+        # Check if user wants a call - handle this BEFORE OpenAI and BEFORE processing new email
+        # This should be the FIRST check after getting session
         if wants_call:
-            # Check if we have their info from session
-            if session and session.get('info_provided'):
-                user_name = session.get('name', 'there')
+            # First check if we have their info from existing session
+            if session:
+                # Check if session has required info
+                user_name = session.get('name', '')
                 user_email = session.get('email', '')
                 
-                logger.info(f"User requested a call. Initiating with session info...")
-                
-                # URL encode the parameters
-                encoded_name = urllib.parse.quote(user_name) if user_name else ""
-                encoded_email = urllib.parse.quote(user_email) if user_email else ""
-                
-                # Mark call as initiated
-                session_manager.mark_call_initiated(from_number)
-                
-# Trigger outbound call
-                base = get_public_base_url(request)
-                result = twilio_connector.make_voice_call(
-                    to_number=from_number,
-                    twiml_url=f"{base}/twilio/webhook/voice/outbound?userName={encoded_name}\u0026userEmail={encoded_email}"
-                )
-                
-                logger.info(f"Call initiation result: {result}")
-                
-                if user_name and user_name != "there":
-                    return f"Of course, {user_name}! I'm calling you right now! 📞"
-                else:
-                    return f"Absolutely! I'm calling you right now! 📞"
-            else:
-                # Need their info first
-                return "I'd love to call you! Just need your email address first so I can connect with you."
+                if user_email:  # If we have email, we can call
+                    logger.info(f"User requested a call. Have session with email: {user_email}")
+                    
+                    # URL encode the parameters
+                    encoded_name = urllib.parse.quote(user_name) if user_name else ""
+                    encoded_email = urllib.parse.quote(user_email) if user_email else ""
+                    
+                    # Mark call as initiated
+                    session_manager.mark_call_initiated(from_number)
+                    
+                    # Trigger outbound call
+                    base = get_public_base_url(request)
+                    result = twilio_connector.make_voice_call(
+                        to_number=from_number,
+                        twiml_url=f"{base}/twilio/webhook/voice/outbound?userName={encoded_name}&userEmail={encoded_email}"
+                    )
+                    
+                    logger.info(f"Call initiation result: {result}")
+                    
+                    if user_name and user_name != "there":
+                        return f"Of course, {user_name}! I'm calling you right now! 📞"
+                    else:
+                        return f"Absolutely! I'm calling you right now! 📞"
+            
+            # If no session or no email, ask for it
+            return "I'd love to call you! Just need your email address first so I can connect with you."
         
         # If no contact info and not asking for a call, use OpenAI for chat
         if not settings.openai_api_key:
