@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Optional
 import logging
 import os
-from services.convex_db import convex_db as convex_client
+from services.convex_client import convex_client
 
 logger = logging.getLogger(__name__)
 
@@ -23,9 +23,8 @@ class ConvexSessionManager:
         phone_number = self._normalize_phone(phone_number)
         
         try:
-            # For now, fall back to local storage until Convex functions are set up
-            logger.warning("Convex session functions not implemented, using fallback")
-            return None
+            # Query Convex for the session
+            result = self.client.query("sessions:get", {"phoneNumber": phone_number})
             
             if result:
                 # Check if session expired
@@ -33,7 +32,7 @@ class ConvexSessionManager:
                 if datetime.now() - last_activity > self.session_timeout:
                     logger.info(f"Session expired for {phone_number}")
                     # Delete expired session
-                    self.client.mutation("sessions:delete", {"phoneNumber": phone_number})
+                    self.client.mutation("sessions:deleteSession", {"phoneNumber": phone_number})
                     return None
                 
                 # Update last activity
@@ -64,9 +63,11 @@ class ConvexSessionManager:
                 "createdAt": data.get('created_at', datetime.now().isoformat())
             }
             
-            # For now, just log until Convex functions are set up
-            logger.warning(f"Would update Convex session for {phone_number}: {session_data}")
-            return session_data
+            # Upsert session in Convex
+            result = self.client.mutation("sessions:upsert", session_data)
+            
+            logger.info(f"Session updated in Convex for {phone_number}: {result}")
+            return result if result else session_data
             
         except Exception as e:
             logger.error(f"Error updating session in Convex: {e}")
@@ -104,7 +105,7 @@ class ConvexSessionManager:
         """Clear a user's session"""
         phone_number = self._normalize_phone(phone_number)
         try:
-            self.client.mutation("sessions:delete", {"phoneNumber": phone_number})
+            self.client.mutation("sessions:deleteSession", {"phoneNumber": phone_number})
             logger.info(f"Session cleared in Convex for {phone_number}")
         except Exception as e:
             logger.error(f"Error clearing session in Convex: {e}")
