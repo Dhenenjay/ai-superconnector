@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: ai-superconnector
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn apps.api.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DATABASE_URL
+        sync: false  # We'll use Convex instead
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_API_KEY
+        sync: false
+      - key: TWILIO_API_SECRET
+        sync: false
+      - key: TWILIO_WHATSAPP_NUMBER
+        value: whatsapp:+18667972610
+      - key: TWILIO_PHONE_NUMBER
+        value: +18667972610
+      - key: PUBLIC_BASE_URL
+        sync: false  # Will be set after deployment
+      - key: CONVEX_URL
+        sync: false  # Your Convex deployment URL
+      - key: CONVEX_DEPLOY_KEY
+        sync: false  # Your Convex deploy key
